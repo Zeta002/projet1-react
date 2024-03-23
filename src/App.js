@@ -1,18 +1,31 @@
 import React from 'react';
 import './App.css';
+import Header from "./Header";
+import Footer from "./Footer";
+
+// mui icons
+import WorkIcon from "@mui/icons-material/Work";
+import PersonIcon from "@mui/icons-material/Person";
+import FavoriteIcon from "@mui/icons-material/Favorite";
 
 class App extends React.Component {
   constructor(props) {
     super(props);
+    let items = [
+      { id: 1, text: "Here is a task for example", done: false }
+    ];
+    const loadFromLocalStorage = window.confirm("Do you want to load tasks from LocalStorage?");
+    if (loadFromLocalStorage) {
+      const storedItems = localStorage.getItem('todoItems');
+      if (storedItems) {
+        items = JSON.parse(storedItems);
+      }
+    }
     this.state = {
-      items: [
-        { id: 1, text: "Learn JavaScript", done: false },
-        { id: 2, text: "Learn React", done: false },
-        { id: 3, text: "Play around in JSFiddle", done: true },
-        { id: 4, text: "Build something awesome", done: true }
-      ],
+      items: items,
       newItemText: "",
-      searchText: ""
+      searchText: "",
+      loadFromLocalStorage: false
     };
 
     this.handleInputChange = this.handleInputChange.bind(this);
@@ -25,18 +38,35 @@ class App extends React.Component {
     this.handleMoveUp = this.handleMoveUp.bind(this);
     this.handleMoveDown = this.handleMoveDown.bind(this);
     this.handleSearchInputChange = this.handleSearchInputChange.bind(this);
+    this.handleChangeCategory = this.handleChangeCategory.bind(this);
+  }
+
+  handleSaveToLocalStorage = () => {
+    localStorage.setItem('todoItems', JSON.stringify(this.state.items));
+  }
+
+  handleLoadFromLocalStorage = () => {
+    const storedItems = localStorage.getItem('todoItems');
+    if (storedItems) {
+      this.setState({ items: JSON.parse(storedItems) });
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState, snapshot) {
+    // We do not store in local storage manually anymore
+    //localStorage.setItem('todoItems', JSON.stringify(this.state.items));
   }
 
   handleInputChange(event) {
     this.setState({ newItemText: event.target.value });
   }
 
-  handleFormSubmit(event) {
-    event.preventDefault();
-    if (this.state.newItemText.trim() !== "") {
+  handleFormSubmit(newTask, selectedIcon) {
+    if (newTask.trim() !== "") {
       const newItem = {
         id: Date.now(),
-        text: this.state.newItemText,
+        text: newTask,
+        icon: selectedIcon,
         done: false
       };
       this.setState(prevState => ({
@@ -95,58 +125,86 @@ class App extends React.Component {
     this.setState({ searchText: event.target.value });
   }
 
+  handleChangeCategory(id, newCategory) {
+    this.setState(prevState => ({
+      items: prevState.items.map(item =>
+          item.id === id ? { ...item, category: newCategory } : item
+      )
+    }));
+  }
+
   render() {
-    const filteredItems = this.state.items.filter(item =>
-        item.text.toLowerCase().includes(this.state.searchText.toLowerCase())
-    );
+    let filteredItems = this.state.items;
+    if (this.state.searchText.length >= 3) {
+      filteredItems = filteredItems.filter(item =>
+          item.text.toLowerCase().includes(this.state.searchText.toLowerCase())
+      );
+    }
+
+    const headerStyle = {
+      opacity: this.state.searchText.length >= 3 ? 0.5 : 1
+    };
 
     return (
         <div>
+          <Header items={this.state.items} style={headerStyle}/>
+
           <h2>Todos:</h2>
-          <form onSubmit={this.handleFormSubmit}>
-            <input
-                type="text"
-                value={this.state.newItemText}
-                onChange={this.handleInputChange}
-                placeholder="Add a new task"
-            />
-            <button type="submit">Add Task</button>
-          </form>
-          <input
-              type="text"
-              value={this.state.searchText}
-              onChange={this.handleSearchInputChange}
-              placeholder="Search tasks"
-          />
           <ol>
-            {filteredItems.map((item, index) => (
-                <li
-                    key={item.id}
-                    draggable
-                    onDragStart={e => this.handleDragStart(e, item.id)}
-                    onDragOver={this.handleDragOver}
-                    onDrop={e => this.handleDrop(e, index)}
-                >
-                  <label>
-                    <input
-                        type="checkbox"
-                        checked={item.done}
-                        onChange={() => this.handleTaskStateToggle(item.id)}
-                    />
-                    <span className={item.done ? "done" : ""}>{item.text}</span>
-                  </label>
-                  <button onClick={() => this.handleDeleteTask(item.id)}>Delete</button>
-                  {index !== 0 && (
-                      <button onClick={() => this.handleMoveUp(index)}>↑</button>
-                  )}
-                  {index !== this.state.items.length - 1 && (
-                      <button onClick={() => this.handleMoveDown(index)}>↓</button>
-                  )}
-                </li>
-            ))}
+            {filteredItems.map((item, index) => {
+              let Icon;
+              switch (item.icon) {
+                case 'Work':
+                  Icon = WorkIcon;
+                  break;
+                case 'Personal':
+                  Icon = PersonIcon;
+                  break;
+                case 'Life':
+                  Icon = FavoriteIcon;
+                  break;
+                default:
+                  Icon = WorkIcon;
+              }
+              return (
+                  <li
+                      key={item.id}
+                      draggable
+                      onDragStart={e => this.handleDragStart(e, item.id)}
+                      onDragOver={this.handleDragOver}
+                      onDrop={e => this.handleDrop(e, index)}
+                  >
+                    <Icon/>
+                    <label>
+                      <input
+                          type="checkbox"
+                          checked={item.done}
+                          onChange={() => this.handleTaskStateToggle(item.id)}
+                      />
+                      <span className={item.done ? "done" : ""}>{item.text}</span>
+                    </label>
+                    <button onClick={() => this.handleDeleteTask(item.id)}>Delete</button>
+                    {index !== 0 && (
+                        <button onClick={() => this.handleMoveUp(index)}>↑</button>
+                    )}
+                    {index !== this.state.items.length - 1 && (
+                        <button onClick={() => this.handleMoveDown(index)}>↓</button>
+                    )}
+                  </li>
+              );
+            })}
           </ol>
+          <Footer
+              state={this.state}
+              handleFormSubmit={this.handleFormSubmit}
+              handleInputChange={this.handleInputChange}
+              handleSearchInputChange={this.handleSearchInputChange}
+          />
+          <button onClick={this.handleSaveToLocalStorage}>Save tasks</button>
+          <button onClick={this.handleLoadFromLocalStorage}>Load tasks</button>
         </div>
-    );
+    )
+        ;
   }
 }
 
